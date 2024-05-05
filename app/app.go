@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -59,8 +60,7 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 
 		go func(i int, cm string) {
 			log.Printf("%d: Running command : %s", i, cm)
-			// TODO use bash ?
-			cmd := exec.Command("/bin/bash", "-c", cm)
+			cmd := exec.Command(os.Getenv("SHELL"), "-c", cm)
 
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
