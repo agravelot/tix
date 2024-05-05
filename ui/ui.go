@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/agravelot/tix/app"
+	"github.com/agravelot/tix/core"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -51,7 +51,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type uiApp struct {
-	cfg                 app.Config
+	application         core.Application
 	list                list.Model
 	settingUpWorkspaces bool
 	quitting            bool
@@ -85,10 +85,10 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if len(m.selected) != 0 {
 				for k := range m.selected {
-					workspace := m.cfg.Workspaces[k]
-					log.Printf("Setting up workspace %s", workspace.Name)
-					log.Printf("Running commands %v", workspace.SetupCommands)
-					workspace.Setup()
+					w := m.application.Workspaces[k]
+					log.Printf("Setting up workspace %s", w.Name)
+					log.Printf("Running commands %v", w.SetupCommands)
+					w.Setup()
 				}
 			}
 
@@ -123,7 +123,7 @@ func (m uiApp) View() string {
 
 		for k := range m.selected {
 			log.Println("Selected : ", k)
-			out += fmt.Sprintf("%v\n", m.cfg.Workspaces[k].Name)
+			out += fmt.Sprintf("%v\n", m.application.Workspaces[k].Name)
 		}
 
 		return quitTextStyle.Render(fmt.Sprintf("%s? Sounds good to me.", out))
@@ -137,12 +137,12 @@ func (m uiApp) View() string {
 }
 
 // New starts the UI
-func New(cfg app.Config) error {
+func New(app core.Application) error {
 	const defaultWidth = 20
 
 	items := []list.Item{}
 
-	for _, w := range cfg.Workspaces {
+	for _, w := range app.Workspaces {
 		items = append(items, item(w.Name))
 	}
 
@@ -154,7 +154,7 @@ func New(cfg app.Config) error {
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
-	m := uiApp{cfg: cfg, list: l, selected: map[int]struct{}{}}
+	m := uiApp{application: app, list: l, selected: map[int]struct{}{}}
 
 	_, err := tea.NewProgram(m).Run()
 	return err

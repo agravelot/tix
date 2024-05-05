@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/agravelot/tix/app"
+	"github.com/agravelot/tix/core"
 	"github.com/agravelot/tix/ui"
 	"github.com/pelletier/go-toml/v2"
 )
@@ -16,13 +16,15 @@ func main() {
 		log.Fatalf("unable to read config: %v", err)
 	}
 
-	var cfg app.Config
+	var cfg core.Config
 	err = toml.Unmarshal(f, &cfg)
 	if err != nil {
 		log.Fatalf("unable to unmarshal config: %v", err)
 	}
 
-	err = ui.New(cfg)
+	a := core.NewApplication(cfg)
+
+	err = ui.New(a)
 	if err != nil {
 		log.Fatalf("error on ui: %v", err)
 	}

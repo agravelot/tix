@@ -1,4 +1,4 @@
-package app
+package workspace
 
 import (
 	"bufio"
@@ -14,15 +14,11 @@ import (
 	"github.com/agravelot/tix/color"
 )
 
-// Config represents the configuration of tix
-type Config struct {
-	Workspaces []Workspace `toml:"workspace"`
-}
-
 // Workspace represents a workspace
 type Workspace struct {
 	Name      string
 	Directory string
+	Shell     string
 	// TODO Define default values
 	Timeout          int
 	SetupCommands    []string
@@ -45,7 +41,17 @@ func (w Workspace) Teardown() {
 	w.runCommand(ctx, w.TeardownCommands...)
 }
 
-// TODO Implement timeout
+type WorkspaceBuilder struct {
+	Name      string
+	Directory string
+}
+
+// func NewWorkspace(name string, params ) Workspace {
+// 	return Workspace{
+// 		Name: name,
+// 	}
+// }
+
 // runCommand runs multiple commands concurrently
 // Context is used to cancel the commands in case of timeout
 func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
@@ -73,7 +79,6 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 
 			cmd.Dir = w.Directory
 			scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
-			// TODO redirect to stdout
 			err = cmd.Start()
 			if err != nil {
 				log.Fatal(fmt.Errorf("unable to run command: %w", err))
