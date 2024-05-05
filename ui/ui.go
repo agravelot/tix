@@ -55,7 +55,6 @@ type uiApp struct {
 	list                list.Model
 	settingUpWorkspaces bool
 	quitting            bool
-	cursor              int
 	selected            map[int]struct{}
 }
 
@@ -81,7 +80,7 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 	m.choice = string(i)
 			// }
 			log.Println("settingUpWorkspaces : ", m.selected)
-			m.selected[m.cursor] = struct{}{}
+			m.selected[m.list.Index()] = struct{}{}
 			m.settingUpWorkspaces = true
 
 			if len(m.selected) != 0 {
@@ -96,18 +95,25 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+			m.toggle()
 		}
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+func (m *uiApp) toggle() {
+	s := m.list.SelectedItem()
+	log.Println("Selected item : ", s)
+	_, ok := m.selected[m.list.Index()]
+	if ok {
+		delete(m.selected, m.list.Index())
+		return
+	}
+	m.selected[m.list.Index()] = struct{}{}
+	log.Println("Selected : ", m.list.Index())
 }
 
 func (m uiApp) View() string {
