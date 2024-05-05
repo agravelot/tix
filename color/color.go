@@ -5,7 +5,7 @@ import (
 	"runtime"
 )
 
-// Coloe represents a color in the terminal
+// Color represents a color in the terminal
 type Color string
 
 var (
