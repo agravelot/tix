@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"strings"
-	"sync"
 
 	"github.com/agravelot/tix/app"
 	"github.com/charmbracelet/bubbles/list"
@@ -86,15 +85,12 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.settingUpWorkspaces = true
 
 			if len(m.selected) != 0 {
-				wg := sync.WaitGroup{}
-
 				for k := range m.selected {
 					workspace := m.cfg.Workspaces[k]
 					log.Printf("Setting up workspace %s", workspace.Name)
 					log.Printf("Running commands %v", workspace.SetupCommands)
 					workspace.Setup()
 				}
-				wg.Wait()
 			}
 
 			return m, tea.Quit
