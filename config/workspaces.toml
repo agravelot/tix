@@ -1,0 +1,12 @@
+[[workspace]]
+  name = "flasher"
+  directory = "/Users/agravelot/lab/flasher-lerna/apps/api-go"
+  setupCommands = [
+    "echo \"Setting up flasher\"",
+    "docker compose up -d",
+    "\"nvim .\" | kitten @ launch --title Test &"
+  ]
+  teardownCommands = []
+
+[[workspace]]
+  name = "toto"
