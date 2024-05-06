@@ -22,7 +22,10 @@ func main() {
 		log.Fatalf("unable to unmarshal config: %v", err)
 	}
 
-	a := core.NewApplication(cfg)
+	a, err := core.NewApplication(cfg)
+	if err != nil {
+		log.Fatalf("error on application: %v", err)
+	}
 
 	err = ui.New(a)
 	if err != nil {
