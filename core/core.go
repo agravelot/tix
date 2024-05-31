@@ -29,7 +29,7 @@ type Application struct {
 }
 
 func NewApplication(cfg Config) (Application, error) {
-	workspaces := make([]workspace.Workspace, len(cfg.Workspaces))
+	workspaces := make([]workspace.Workspace, 0, len(cfg.Workspaces))
 	for _, cf := range cfg.Workspaces {
 		w := workspace.Workspace{
 			Name: cf.Name,
