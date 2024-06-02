@@ -30,8 +30,9 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 		Environment: nil,
 	}
 
-	// TODO add project name
-	projectName := "api-go"
+	// TODO project name cleaner
+	split := strings.Split(dir, "/")
+	projectName := split[len(split)-1]
 
 	p, err := loader.LoadWithContext(ctx, configDetails, func(options *loader.Options) {
 		options.SetProjectName(projectName, true)
