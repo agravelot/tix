@@ -25,8 +25,7 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 	}
 
 	configDetails := types.ConfigDetails{
-		WorkingDir: dir,
-		// ConfigFiles: types.ToConfigFiles(config),
+		WorkingDir:  dir,
 		ConfigFiles: cfgs,
 		Environment: nil,
 	}
@@ -53,10 +52,9 @@ func createDockerService() (api.Service, error) {
 		return srv, err
 	}
 
+	// TODO Configurable ?
 	dockerContext := "default"
 
-	// Magic line to fix error:
-	// Failed to initialize: unable to resolve docker endpoint: no context store initialized
 	myOpts := &flags.ClientOptions{Context: dockerContext, LogLevel: "error"}
 	err = dockerCli.Initialize(myOpts)
 	if err != nil {

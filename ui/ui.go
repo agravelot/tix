@@ -23,7 +23,9 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
-type item string
+type item struct {
+	Ws core.Workspace
+}
 
 func (i item) FilterValue() string { return "" }
 
@@ -39,7 +41,22 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i)
+	appletsStatus := "🔴"
+	if i.Ws.IsRunning() {
+		appletsStatus = "🟢"
+	}
+
+	appletsStatus += " "
+
+	for _, a := range i.Ws.Applets {
+		if a.IsRunning {
+			appletsStatus += "🟢"
+			continue
+		}
+		appletsStatus += "🔴"
+	}
+
+	str := fmt.Sprintf("%d. %s %s", index+1, i.Ws.Name, appletsStatus)
 
 	fn := itemStyle.Render
 	if index == m.Index() {
@@ -89,7 +106,7 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					w := m.application.Workspaces[k]
 					log.Printf("Setting up workspace %s", w.Name)
 					log.Printf("Running commands %v", w.SetupCommands)
-					err := w.Setup()
+					err := w.Setup(m.application.Docker)
 					if err != nil {
 						log.Fatalln("error setting up workspace : ", err)
 					}
@@ -147,7 +164,7 @@ func New(app core.Application) error {
 	items := []list.Item{}
 
 	for _, w := range app.Workspaces {
-		items = append(items, item(w.Name))
+		items = append(items, item{Ws: w})
 	}
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
