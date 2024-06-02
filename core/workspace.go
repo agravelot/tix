@@ -61,6 +61,10 @@ func (w Workspace) IsRunning() bool {
 }
 
 func (w *Workspace) RefreshApplets(ctx context.Context, srv api.Service) error {
+	if len(w.DockerCompose.Configs) == 0 {
+		return nil
+	}
+
 	p, err := createDockerProject(ctx, w.Directory, w.DockerCompose.Configs)
 	if err != nil {
 		return fmt.Errorf("error create docker project: %w", err)
@@ -70,8 +74,6 @@ func (w *Workspace) RefreshApplets(ctx context.Context, srv api.Service) error {
 	if err != nil {
 		return err
 	}
-
-	// pretty.Println(sum)
 
 	var applets []Applet
 
