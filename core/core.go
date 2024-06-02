@@ -29,12 +29,14 @@ func NewApplication(cfg Config) (Application, error) {
 	for _, cf := range cfg.Workspaces {
 		w, err := NewWorkspace(cf)
 		if err != nil {
-			// TODO Wrap error
 			return Application{}, fmt.Errorf("invalid workspace: %w", err)
 		}
 
 		// TODO non blocking
-		w.RefreshApplets(context.Background(), srv)
+		err = w.RefreshApplets(context.Background(), srv)
+		if err != nil {
+			return Application{}, fmt.Errorf("error refresh applets: %w", err)
+		}
 
 		workspaces = append(workspaces, w)
 	}
