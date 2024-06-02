@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/loader"
@@ -40,7 +39,6 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 	if err != nil {
 		return p, fmt.Errorf("error load: %w", err)
 	}
-	addServiceLabels(p)
 	return p, nil
 }
 
@@ -65,34 +63,4 @@ func createDockerService() (api.Service, error) {
 	srv = compose.NewComposeService(dockerCli)
 
 	return srv, nil
-}
-
-func myExec(ctx context.Context, srv api.Service, p *types.Project, cmd string) {
-	result, err := srv.Exec(ctx, p.Name, api.RunOptions{
-		Service:     "testservice",
-		Command:     []string{"/bin/bash", "-c", cmd},
-		WorkingDir:  "/bin",
-		Tty:         true,
-		Environment: []string{"TONE=test1"},
-	})
-	log.Println("Command result:", result, " and err:", err)
-}
-
-/*
-addServiceLabels adds the labels docker compose expects to exist on services.
-This is required for future compose operations to work, such as finding
-containers that are part of a service.
-*/
-func addServiceLabels(project *types.Project) {
-	for i, s := range project.Services {
-		s.CustomLabels = map[string]string{
-			api.ProjectLabel:     project.Name,
-			api.ServiceLabel:     s.Name,
-			api.VersionLabel:     api.ComposeVersion,
-			api.WorkingDirLabel:  "/",
-			api.ConfigFilesLabel: strings.Join(project.ComposeFiles, ","),
-			api.OneoffLabel:      "False", // default, will be overridden by `run` command
-		}
-		project.Services[i] = s
-	}
 }
