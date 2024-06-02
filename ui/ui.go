@@ -35,6 +35,7 @@ func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	i, ok := listItem.(item)
 	if !ok {
+		log.Println("could not assert item to item")
 		return
 	}
 
@@ -88,7 +89,10 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					w := m.application.Workspaces[k]
 					log.Printf("Setting up workspace %s", w.Name)
 					log.Printf("Running commands %v", w.SetupCommands)
-					w.Setup()
+					err := w.Setup()
+					if err != nil {
+						log.Fatalln("error setting up workspace : ", err)
+					}
 				}
 			}
 

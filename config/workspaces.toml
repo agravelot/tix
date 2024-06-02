@@ -1,12 +1,13 @@
 [[workspace]]
-  name = "flasher-api-go"
-  directory = "/Users/agravelot/lab/flasher-lerna/apps/api-go"
-  setupCommands = [
-    "echo \"Setting up flasher\"",
-    "docker compose up -d",
-    "kitten @ launch --copy-env --cwd=current --title Test nvim ."
-  ]
-  teardownCommands = []
+name = "flasher-api-go"
+directory = "/Users/agravelot/lab/flasher-lerna/apps/api-go"
+setupCommands = [
+  "echo \"Setting up flasher\"",
+  "docker compose up -d",
+  "kitten @ launch --copy-env --cwd=current --title Test nvim .",
+]
+teardownCommands = []
+dockerCompose = { configs = ["docker-compose.yml"] }
 
 [[workspace]]
-  name = "toto"
+name = "toto"

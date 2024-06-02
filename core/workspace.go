@@ -1,4 +1,4 @@
-package workspace
+package core
 
 import (
 	"bufio"
@@ -12,32 +12,67 @@ import (
 	"time"
 
 	"github.com/agravelot/tix/color"
+	"github.com/docker/compose/v2/pkg/api"
 )
 
 // Workspace represents a workspace
 type Workspace struct {
-	Name      string
-	Directory string
-	Shell     string
-	// TODO Define default values
-	Timeout          int
+	Name             string
+	Directory        string
+	Shell            string
 	SetupCommands    []string
 	TeardownCommands []string
+	DockerCompose    struct{ Configs []string }
+	Timeout          int
 }
 
-func (w Workspace) Setup() {
+func (w Workspace) Setup() error {
 	log.Println("Setting up workspace : ", w.Name)
-	// TODO configure timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
+
+	if w.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(w.Timeout)*time.Second)
+		defer cancel()
+	}
+
+	log.Println("Setting up comp : ", w.DockerCompose)
+
+	if len(w.DockerCompose.Configs) > 0 {
+		log.Println("Setting up docker compose: ", w.Name)
+
+		p, err := createDockerProject(ctx, w.Directory, w.DockerCompose.Configs)
+		if err != nil {
+			return fmt.Errorf("error create docker project: %w", err)
+		}
+
+		srv, err := createDockerService()
+		if err != nil {
+			return fmt.Errorf("error create docker service: %w", err)
+		}
+
+		fmt.Println("Docker service up...")
+		err = srv.Up(ctx, p, api.UpOptions{})
+		if err != nil {
+			return fmt.Errorf("unable running docker compose up: %w", err)
+		}
+	}
+
 	w.runCommand(ctx, w.SetupCommands...)
+
+	return nil
 }
 
 func (w Workspace) Teardown() {
 	log.Println("Tearing down workspace : ", w.Name)
-	// TODO configure timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
+
+	if w.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(w.Timeout)*time.Second)
+		defer cancel()
+	}
+
 	w.runCommand(ctx, w.TeardownCommands...)
 }
 

@@ -2,39 +2,25 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
-
-	"github.com/agravelot/tix/workspace"
 )
-
-// Config represents the configuration of tix
-type Config struct {
-	Shell      string
-	Workspaces []ConfigWorkspace `toml:"workspace"`
-}
-
-type ConfigWorkspace struct {
-	Name             string
-	Directory        string
-	SetupCommands    []string
-	TeardownCommands []string
-	// Default to 5 seconds
-	Timeout int
-}
 
 type Application struct {
 	Config     Config
-	Workspaces []workspace.Workspace
+	Workspaces []Workspace
 }
 
 func NewApplication(cfg Config) (Application, error) {
-	workspaces := make([]workspace.Workspace, 0, len(cfg.Workspaces))
-	for _, cf := range cfg.Workspaces {
-		w := workspace.Workspace{
-			Name: cf.Name,
-		}
+	workspaces := make([]Workspace, 0, len(cfg.Workspaces))
 
+	for _, cf := range cfg.Workspaces {
+		w, err := cf.Workspace()
+		if err != nil {
+			// TODO Wrap error
+			return Application{}, fmt.Errorf("invalid workspace: %w", err)
+		}
 		workspaces = append(workspaces, w)
 	}
 
