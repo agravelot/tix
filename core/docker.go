@@ -39,6 +39,7 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 	if err != nil {
 		return p, fmt.Errorf("error load: %w", err)
 	}
+	addServiceLabels(p)
 	return p, nil
 }
 
@@ -63,4 +64,23 @@ func createDockerService() (api.Service, error) {
 	srv = compose.NewComposeService(dockerCli)
 
 	return srv, nil
+}
+
+/*
+addServiceLabels adds the labels docker compose expects to exist on services.
+This is required for future compose operations to work, such as finding
+containers that are part of a service.
+*/
+func addServiceLabels(project *types.Project) {
+	for i, s := range project.Services {
+		s.CustomLabels = map[string]string{
+			api.ProjectLabel:     project.Name,
+			api.ServiceLabel:     s.Name,
+			api.VersionLabel:     api.ComposeVersion,
+			api.WorkingDirLabel:  "/",
+			api.ConfigFilesLabel: strings.Join(project.ComposeFiles, ","),
+			api.OneoffLabel:      "False", // default, will be overridden by `run` command
+		}
+		project.Services[i] = s
+	}
 }
