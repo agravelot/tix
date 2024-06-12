@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/loader"
@@ -52,10 +53,7 @@ func createDockerService() (api.Service, error) {
 		return srv, err
 	}
 
-	// TODO Configurable ?
-	dockerContext := "default"
-
-	myOpts := &flags.ClientOptions{Context: dockerContext, LogLevel: "error"}
+	myOpts := &flags.ClientOptions{Context: getDockerContext(), LogLevel: "error"}
 	err = dockerCli.Initialize(myOpts)
 	if err != nil {
 		return srv, err
@@ -83,4 +81,14 @@ func addServiceLabels(project *types.Project) {
 		}
 		project.Services[i] = s
 	}
+}
+
+func getDockerContext() string {
+	env := os.Getenv("DOCKER_CONTEXT")
+
+	if env == "" {
+		env = "default"
+	}
+
+	return env
 }
