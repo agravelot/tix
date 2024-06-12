@@ -46,7 +46,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		appletsStatus = "🟢"
 	}
 
-	appletsStatus += " "
+	appletsStatus += " \ue7b0 \uf308"
 
 	for _, a := range i.Ws.Applets {
 		if a.IsRunning {
