@@ -37,7 +37,7 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 		options.SetProjectName(projectName, true)
 	})
 	if err != nil {
-		return p, fmt.Errorf("error load: %w", err)
+		return p, fmt.Errorf("error load project '%s': %w", projectName, err)
 	}
 	addServiceLabels(p)
 	return p, nil
