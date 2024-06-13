@@ -96,14 +96,24 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Println("settingUpWorkspaces : ", m.selected)
 			m.settingUpWorkspaces = true
 
-			if len(m.selected) != 0 {
-				for k := range m.selected {
-					w := m.application.Workspaces[k]
-					log.Printf("Setting up workspace %s", w.Name)
-					log.Printf("Running commands %v", w.SetupCommands)
-					err := w.Setup(m.application.Docker)
-					if err != nil {
-						log.Fatalln("error setting up workspace : ", err)
+			for i, w := range m.application.Workspaces {
+				_, isSelected := m.selected[i]
+				// TODO Refactor without nested if
+				if w.IsRunning() != isSelected {
+					if isSelected {
+						log.Printf("Setting up workspace %s", w.Name)
+						log.Printf("Running commands %v", w.SetupCommands)
+						err := w.Setup(m.application.Docker)
+						if err != nil {
+							log.Fatalln("error setting up workspace : ", err)
+						}
+					} else {
+						log.Printf("Tearing down workspace %s", w.Name)
+						log.Printf("Running commands %v", w.TeardownCommands)
+						err := w.Teardown(m.application.Docker)
+						if err != nil {
+							log.Fatalln("error tearing down workspace : ", err)
+						}
 					}
 				}
 			}
@@ -157,9 +167,13 @@ func New(app core.Application) error {
 	const defaultWidth = 20
 
 	items := []list.Item{}
+	s := make(map[int]struct{}, len(app.Workspaces))
 
-	for _, w := range app.Workspaces {
-		items = append(items, item{Ws: w})
+	for i := range app.Workspaces {
+		items = append(items, item{Ws: app.Workspaces[i]})
+		if app.Workspaces[i].IsRunning() {
+			s[i] = struct{}{}
+		}
 	}
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
@@ -170,7 +184,7 @@ func New(app core.Application) error {
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
-	m := uiApp{application: app, list: l, selected: map[int]struct{}{}}
+	m := uiApp{application: app, list: l, selected: s}
 
 	_, err := tea.NewProgram(m).Run()
 	return err
