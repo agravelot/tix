@@ -27,7 +27,7 @@ type item struct {
 	Ws core.Workspace
 }
 
-func (i item) FilterValue() string { return "" }
+func (i item) FilterValue() string { return i.Ws.Name }
 
 type itemDelegate struct{}
 
