@@ -93,12 +93,7 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "enter":
-			// i, ok := m.list.SelectedItem().(item)
-			// if ok {
-			// 	m.choice = string(i)
-			// }
 			log.Println("settingUpWorkspaces : ", m.selected)
-			m.selected[m.list.Index()] = struct{}{}
 			m.settingUpWorkspaces = true
 
 			if len(m.selected) != 0 {
