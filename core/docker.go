@@ -55,7 +55,7 @@ func createDockerService() (api.Service, error) {
 	var srv api.Service
 	dockerCli, err := command.NewDockerCli()
 	if err != nil {
-		return srv, err
+		return srv, fmt.Errorf("error creating docker cli: %w", err)
 	}
 
 	err = dockerCli.Initialize(&flags.ClientOptions{Context: getDockerContext(), LogLevel: "error"})
