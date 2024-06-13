@@ -12,7 +12,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const listHeight = 14
+const (
+	listHeight = 14
+	RUNNING    = "🟢"
+	STOPPED    = "🔴"
+)
 
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
@@ -41,19 +45,19 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	appletsStatus := "🔴"
+	appletsStatus := STOPPED
 	if i.Ws.IsRunning() {
-		appletsStatus = "🟢"
+		appletsStatus = RUNNING
 	}
 
 	appletsStatus += " \ue7b0 \uf308"
 
 	for _, a := range i.Ws.Applets {
 		if a.IsRunning {
-			appletsStatus += "🟢"
+			appletsStatus += RUNNING
 			continue
 		}
-		appletsStatus += "🔴"
+		appletsStatus += STOPPED
 	}
 
 	str := fmt.Sprintf("%d. %s %s", index+1, i.Ws.Name, appletsStatus)
