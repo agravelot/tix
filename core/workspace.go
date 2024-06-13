@@ -65,7 +65,7 @@ func (w *Workspace) RefreshApplets(ctx context.Context, srv api.Service) error {
 		return nil
 	}
 
-	p, err := createDockerProject(ctx, w.Directory, w.DockerCompose.Configs)
+	p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
 	if err != nil {
 		return fmt.Errorf("error create docker project: %w", err)
 	}
@@ -101,19 +101,34 @@ func (w Workspace) Setup(srv api.Service) error {
 		defer cancel()
 	}
 
-	log.Println("Setting up comp : ", w.DockerCompose)
-
+	// TODO Refactor outside of workspace
 	if len(w.DockerCompose.Configs) > 0 {
 		log.Println("Setting up docker compose: ", w.Name)
 
 		// TODO one per workspace
-		p, err := createDockerProject(ctx, w.Directory, w.DockerCompose.Configs)
+		p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
 		if err != nil {
 			return fmt.Errorf("error create docker project: %w", err)
 		}
 
-		fmt.Println("Docker service up...")
-		err = srv.Up(ctx, p, api.UpOptions{})
+		createOpts := api.CreateOptions{
+			Recreate:             api.RecreateDiverged,
+			RecreateDependencies: api.RecreateDiverged,
+			Inherit:              true,
+			Services:             p.ServiceNames(),
+			Build: &api.BuildOptions{
+				Services: p.ServiceNames(),
+			},
+		}
+
+		startOpts := api.StartOptions{
+			Project: p,
+		}
+
+		err = srv.Up(ctx, p, api.UpOptions{
+			Create: createOpts,
+			Start:  startOpts,
+		})
 		if err != nil {
 			return fmt.Errorf("unable running docker compose up: %w", err)
 		}
@@ -138,12 +153,13 @@ func (w Workspace) Teardown(srv api.Service) error {
 		log.Println("Setting down docker compose: ", w.Name)
 
 		// TODO one per workspace
-		p, err := createDockerProject(ctx, w.Directory, w.DockerCompose.Configs)
+		p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
 		if err != nil {
 			return fmt.Errorf("error down docker project: %w", err)
 		}
 
-		err = srv.Down(ctx, p.Name, api.DownOptions{})
+		// err = srv.Down(ctx, p.Name, api.DownOptions{})
+		err = srv.Stop(ctx, p.Name, api.StopOptions{})
 		if err != nil {
 			return fmt.Errorf("unable running docker compose down: %w", err)
 		}

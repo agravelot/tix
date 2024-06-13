@@ -14,7 +14,9 @@ import (
 	"github.com/docker/compose/v2/pkg/compose"
 )
 
-func createDockerProject(ctx context.Context, dir string, config []string) (*types.Project, error) {
+// cmdcompose "github.com/docker/compose/v2/cmd/compose"
+
+func createDockerComposeProject(ctx context.Context, dir string, config []string) (*types.Project, error) {
 	cfgs := make([]types.ConfigFile, 0)
 
 	for _, c := range config {
@@ -40,7 +42,10 @@ func createDockerProject(ctx context.Context, dir string, config []string) (*typ
 	if err != nil {
 		return p, fmt.Errorf("error load project '%s': %w", projectName, err)
 	}
+
+	// TODO use included service label injection
 	addServiceLabels(p)
+
 	return p, nil
 }
 
@@ -53,8 +58,7 @@ func createDockerService() (api.Service, error) {
 		return srv, err
 	}
 
-	myOpts := &flags.ClientOptions{Context: getDockerContext(), LogLevel: "error"}
-	err = dockerCli.Initialize(myOpts)
+	err = dockerCli.Initialize(&flags.ClientOptions{Context: getDockerContext(), LogLevel: "error"})
 	if err != nil {
 		return srv, err
 	}
@@ -89,6 +93,7 @@ func getDockerContext() string {
 	if env == "" {
 		env = "default"
 	}
+	// TODO Get current context from docker
 
 	return env
 }
