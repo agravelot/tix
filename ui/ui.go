@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/agravelot/tix/core"
 	"github.com/charmbracelet/bubbles/list"
@@ -126,30 +127,34 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Println("settingUpWorkspaces : ", m.selected)
 			m.settingUpWorkspaces = true
 
-			// TODO Add timeout
+			// TODO Add timeout or cancel context
 			ctx := context.Background()
+
+			wg := sync.WaitGroup{}
 
 			for i, w := range m.application.Workspaces {
 				_, isSelected := m.selected[i]
 				// TODO Refactor without nested if
 				if w.IsRunning() != isSelected {
-					if isSelected {
-						// log.Printf("Setting up workspace %s", w.Name)
-						// log.Printf("Running commands %v", w.SetupCommands)
-						err := w.Setup(ctx, m.application.Docker)
-						if err != nil {
-							log.Fatalln("error setting up workspace : ", err)
+					wg.Add(1)
+
+					go func(s bool, w core.Workspace) {
+						if s {
+							err := w.Setup(ctx, m.application.Docker)
+							if err != nil {
+								log.Fatalln("error setting up workspace : ", err)
+							}
+						} else {
+							err := w.Teardown(ctx, m.application.Docker)
+							if err != nil {
+								log.Fatalln("error tearing down workspace : ", err)
+							}
 						}
-					} else {
-						// log.Printf("Tearing down workspace %s", w.Name)
-						// log.Printf("Running commands %v", w.TeardownCommands)
-						err := w.Teardown(ctx, m.application.Docker)
-						if err != nil {
-							log.Fatalln("error tearing down workspace : ", err)
-						}
-					}
+					}(isSelected, w)
 				}
 			}
+
+			wg.Wait()
 
 			return m, tea.Quit
 

@@ -43,6 +43,18 @@ func (s KittySource) StartProject(name string) error {
 	return nil
 }
 
+func (s KittySource) HasTabOpen(windows []Window, tabName string) bool {
+	for _, p := range windows {
+		for _, tab := range p.Tabs {
+			if tabName == tab.Title {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func (s KittySource) StopProject(p Workspace) error {
 	return fmt.Errorf("not implemented")
 }

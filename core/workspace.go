@@ -78,31 +78,14 @@ func (w *Workspace) RefreshApplets(ctx context.Context, srv api.Service) error {
 		return fmt.Errorf("unable listing projects: %w", err)
 	}
 
-	isRunning := false
-
-loop:
-	for _, p := range projects {
-		for _, tab := range p.Tabs {
-			if w.Name == tab.Title {
-				isRunning = true
-				break loop
-			}
-		}
-	}
-
 	applets := []Applet{
 		{
 			Icon:      "kitty",
-			IsRunning: isRunning,
+			IsRunning: r.HasTabOpen(projects, w.Name),
 		},
 	}
 
 	if len(w.DockerCompose.Configs) > 0 && w.DockerCompose.project != nil {
-		// p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
-		// if err != nil {
-		// 	return fmt.Errorf("error create docker project: %w", err)
-		// }
-
 		sum, err := srv.Ps(ctx, w.DockerCompose.project.Name, api.PsOptions{All: true})
 		if err != nil {
 			return fmt.Errorf("unable to list docker compose: %w", err)
@@ -114,11 +97,6 @@ loop:
 				IsRunning: s.State == "running",
 			})
 		}
-
-		// p, []string{}, api.WatchOptions{})
-		// if err != nil {
-		// 	return fmt.Errorf("unable to watch docker compose: %w", err)
-		// }
 	}
 
 	w.Applets = applets
@@ -128,67 +106,75 @@ loop:
 
 // TODO Add context
 func (w Workspace) Setup(ctx context.Context, srv api.Service) error {
-	// log.Println("Setting up workspace : ", w.Name)
-	// ctx := context.Background()
-
 	if w.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(w.Timeout)*time.Second)
 		defer cancel()
 	}
 
+	wg := sync.WaitGroup{}
+
 	// TODO Refactor outside of workspace
-	if len(w.DockerCompose.Configs) > 0 {
-		// log.Println("Setting up docker compose: ", w.Name)
+	if len(w.DockerCompose.Configs) > 0 && w.DockerCompose.project != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			createOpts := api.CreateOptions{
+				Recreate:             api.RecreateDiverged,
+				RecreateDependencies: api.RecreateDiverged,
+				Inherit:              true,
+				Services:             w.DockerCompose.project.ServiceNames(),
+				Build: &api.BuildOptions{
+					Services: w.DockerCompose.project.ServiceNames(),
+				},
+			}
 
-		createOpts := api.CreateOptions{
-			Recreate:             api.RecreateDiverged,
-			RecreateDependencies: api.RecreateDiverged,
-			Inherit:              true,
-			Services:             w.DockerCompose.project.ServiceNames(),
-			Build: &api.BuildOptions{
-				Services: w.DockerCompose.project.ServiceNames(),
-			},
-		}
+			startOpts := api.StartOptions{
+				Project: w.DockerCompose.project,
+			}
 
-		startOpts := api.StartOptions{
-			Project: w.DockerCompose.project,
-		}
-
-		err := srv.Up(ctx, w.DockerCompose.project, api.UpOptions{
-			Create: createOpts,
-			Start:  startOpts,
-		})
-		if err != nil {
-			return fmt.Errorf("unable running docker compose up: %w", err)
-		}
+			err := srv.Up(ctx, w.DockerCompose.project, api.UpOptions{
+				Create: createOpts,
+				Start:  startOpts,
+			})
+			if err != nil {
+				log.Println("error running docker compose up: ", err)
+				// return fmt.Errorf("unable running docker compose up: %w", err)
+			}
+		}()
 	}
 
 	w.runCommand(ctx, w.SetupCommands...)
+	wg.Wait()
 
 	return nil
 }
 
 func (w Workspace) Teardown(ctx context.Context, srv api.Service) error {
-	// log.Println("Tearing down workspace : ", w.Name)
-	// ctx := context.Background()
-
 	if w.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(w.Timeout)*time.Second)
 		defer cancel()
 	}
 
-	if len(w.DockerCompose.Configs) > 0 {
-		log.Println("Setting down docker compose: ", w.Name)
+	wg := sync.WaitGroup{}
 
-		err := srv.Stop(ctx, w.DockerCompose.project.Name, api.StopOptions{})
-		if err != nil {
-			return fmt.Errorf("unable running docker compose down: %w", err)
-		}
+	if len(w.DockerCompose.Configs) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Println("Setting down docker compose: ", w.Name)
+
+			err := srv.Stop(ctx, w.DockerCompose.project.Name, api.StopOptions{})
+			if err != nil {
+				log.Println("error running docker compose down: ", err)
+				// return fmt.Errorf("unable running docker compose down: %w", err)
+			}
+		}()
 	}
 
 	w.runCommand(ctx, w.TeardownCommands...)
+	wg.Wait()
 
 	return nil
 }
@@ -245,47 +231,54 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 		go func(i int, cm string) {
 			defer wg.Done()
 
-			log.Printf("%d: Running command : %s", i, cm)
-			cmd := exec.Command(os.Getenv("SHELL"), "-c", cm)
+			err := func() error {
+				log.Printf("%d: Running command : %s", i, cm)
+				cmd := exec.Command(os.Getenv("SHELL"), "-c", cm)
 
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				log.Fatal(fmt.Errorf("unable to get stdout: %w", err))
-			}
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				log.Fatal(fmt.Errorf("unable to get stdout: %w", err))
-			}
-
-			cmd.Dir = w.Directory
-			scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
-			err = cmd.Start()
-			if err != nil {
-				log.Fatal(fmt.Errorf("unable to run command: %w", err))
-			}
-
-			for scanner.Scan() {
-				log.Printf(color.Colorize(col, fmt.Sprintf("%d: > %s", i, scanner.Text())))
-			}
-
-			if scanner.Err() != nil {
-				err := cmd.Process.Kill()
+				stdout, err := cmd.StdoutPipe()
 				if err != nil {
-					log.Fatal(fmt.Errorf("unable to kill process: %w", err))
+					return fmt.Errorf("unable to get stdout: %w", err)
 				}
+				stderr, err := cmd.StderrPipe()
+				if err != nil {
+					return fmt.Errorf("unable to get stdout: %w", err)
+				}
+
+				cmd.Dir = w.Directory
+				scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+				err = cmd.Start()
+				if err != nil {
+					return fmt.Errorf("unable to run command: %w", err)
+				}
+
+				for scanner.Scan() {
+					log.Printf(color.Colorize(col, fmt.Sprintf("%d: > %s", i, scanner.Text())))
+				}
+
+				if scanner.Err() != nil {
+					err := cmd.Process.Kill()
+					if err != nil {
+						return fmt.Errorf("unable to kill process: %w", err)
+					}
+					err = cmd.Wait()
+					if err != nil {
+						return fmt.Errorf("unable to wait command (%s): %w", cmd, err)
+					}
+					return fmt.Errorf("unable to read stdout: %w", err)
+				}
+
 				err = cmd.Wait()
 				if err != nil {
-					log.Fatal(fmt.Errorf("unable to wait command (%s): %w", cmd, err))
+					return fmt.Errorf("error while running command (%s): %w", cmd, err)
 				}
-				log.Fatal(fmt.Errorf("unable to read stdout: %w", err))
-			}
 
-			err = cmd.Wait()
+				log.Printf(color.Colorize(col, fmt.Sprintf("%d: Command finished", i)))
+
+				return nil
+			}()
 			if err != nil {
-				log.Printf("error while running command (%s): %v", cmd, err)
+				log.Printf("error running command : %v", err)
 			}
-
-			log.Printf(color.Colorize(col, fmt.Sprintf("%d: Command finished", i)))
 		}(i, cmd)
 	}
 
@@ -296,9 +289,8 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 
 	select {
 	case <-c:
-		log.Println("Commands finished")
+		log.Println("commands finished")
 	case <-ctx.Done():
-		log.Println("Timeout reached" + ctx.Err().Error())
+		log.Println("timeout reached" + ctx.Err().Error())
 	}
-	<-ctx.Done()
 }
