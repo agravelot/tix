@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/agravelot/tix/core"
 	"github.com/agravelot/tix/ui"
@@ -11,7 +12,15 @@ import (
 
 func main() {
 	// TODO make it configurable
-	f, err := os.ReadFile("config/workspaces.toml")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("unable to get home directory: %v", err)
+	}
+
+	configPath := filepath.Join(homeDir, ".config", "tix", "config.toml")
+	log.Printf("config path: %s", configPath)
+
+	f, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatalf("unable to read config: %v", err)
 	}

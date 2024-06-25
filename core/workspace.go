@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/agravelot/tix/color"
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/compose/v2/pkg/api"
-	"github.com/kr/pretty"
 )
 
 type Task interface {
@@ -34,6 +34,7 @@ func (t DockerComposeTask) Run() error {
 }
 
 type Applet struct {
+	// TODO enum
 	Icon      string
 	IsRunning bool
 }
@@ -45,9 +46,12 @@ type Workspace struct {
 	Shell            string
 	SetupCommands    []string
 	TeardownCommands []string
-	DockerCompose    struct{ Configs []string }
-	Timeout          int
-	Applets          []Applet
+	DockerCompose    struct {
+		Configs []string
+		project *types.Project
+	}
+	Timeout int
+	Applets []Applet
 }
 
 func (w Workspace) IsRunning() bool {
@@ -60,40 +64,72 @@ func (w Workspace) IsRunning() bool {
 	return false
 }
 
+// TODO inject applet source into workspace
 func (w *Workspace) RefreshApplets(ctx context.Context, srv api.Service) error {
-	if len(w.DockerCompose.Configs) == 0 {
-		return nil
+	// TODO move it and avoid perf issue
+	r := KittySource{
+		// TODO make it configurable
+		ConfigPath:     "./config",
+		RemotePassword: "my passphrase",
 	}
 
-	p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
+	projects, err := r.ListWindows()
 	if err != nil {
-		return fmt.Errorf("error create docker project: %w", err)
+		return fmt.Errorf("unable listing projects: %w", err)
 	}
 
-	sum, err := srv.Ps(ctx, p.Name, api.PsOptions{All: true})
-	if err != nil {
-		return err
+	isRunning := false
+
+loop:
+	for _, p := range projects {
+		for _, tab := range p.Tabs {
+			if w.Name == tab.Title {
+				isRunning = true
+				break loop
+			}
+		}
 	}
 
-	var applets []Applet
+	applets := []Applet{
+		{
+			Icon:      "kitty",
+			IsRunning: isRunning,
+		},
+	}
 
-	for _, s := range sum {
-		applets = append(applets, Applet{
-			Icon:      "docker",
-			IsRunning: s.State == "running",
-		})
+	if len(w.DockerCompose.Configs) > 0 && w.DockerCompose.project != nil {
+		// p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
+		// if err != nil {
+		// 	return fmt.Errorf("error create docker project: %w", err)
+		// }
+
+		sum, err := srv.Ps(ctx, w.DockerCompose.project.Name, api.PsOptions{All: true})
+		if err != nil {
+			return fmt.Errorf("unable to list docker compose: %w", err)
+		}
+
+		for _, s := range sum {
+			applets = append(applets, Applet{
+				Icon:      "docker",
+				IsRunning: s.State == "running",
+			})
+		}
+
+		// p, []string{}, api.WatchOptions{})
+		// if err != nil {
+		// 	return fmt.Errorf("unable to watch docker compose: %w", err)
+		// }
 	}
 
 	w.Applets = applets
 
-	pretty.Println(w.Applets)
-
 	return nil
 }
 
-func (w Workspace) Setup(srv api.Service) error {
-	log.Println("Setting up workspace : ", w.Name)
-	ctx := context.Background()
+// TODO Add context
+func (w Workspace) Setup(ctx context.Context, srv api.Service) error {
+	// log.Println("Setting up workspace : ", w.Name)
+	// ctx := context.Background()
 
 	if w.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -103,29 +139,23 @@ func (w Workspace) Setup(srv api.Service) error {
 
 	// TODO Refactor outside of workspace
 	if len(w.DockerCompose.Configs) > 0 {
-		log.Println("Setting up docker compose: ", w.Name)
-
-		// TODO one per workspace
-		p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
-		if err != nil {
-			return fmt.Errorf("error create docker project: %w", err)
-		}
+		// log.Println("Setting up docker compose: ", w.Name)
 
 		createOpts := api.CreateOptions{
 			Recreate:             api.RecreateDiverged,
 			RecreateDependencies: api.RecreateDiverged,
 			Inherit:              true,
-			Services:             p.ServiceNames(),
+			Services:             w.DockerCompose.project.ServiceNames(),
 			Build: &api.BuildOptions{
-				Services: p.ServiceNames(),
+				Services: w.DockerCompose.project.ServiceNames(),
 			},
 		}
 
 		startOpts := api.StartOptions{
-			Project: p,
+			Project: w.DockerCompose.project,
 		}
 
-		err = srv.Up(ctx, p, api.UpOptions{
+		err := srv.Up(ctx, w.DockerCompose.project, api.UpOptions{
 			Create: createOpts,
 			Start:  startOpts,
 		})
@@ -139,9 +169,9 @@ func (w Workspace) Setup(srv api.Service) error {
 	return nil
 }
 
-func (w Workspace) Teardown(srv api.Service) error {
-	log.Println("Tearing down workspace : ", w.Name)
-	ctx := context.Background()
+func (w Workspace) Teardown(ctx context.Context, srv api.Service) error {
+	// log.Println("Tearing down workspace : ", w.Name)
+	// ctx := context.Background()
 
 	if w.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -152,14 +182,7 @@ func (w Workspace) Teardown(srv api.Service) error {
 	if len(w.DockerCompose.Configs) > 0 {
 		log.Println("Setting down docker compose: ", w.Name)
 
-		// TODO one per workspace
-		p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
-		if err != nil {
-			return fmt.Errorf("error down docker project: %w", err)
-		}
-
-		// err = srv.Down(ctx, p.Name, api.DownOptions{})
-		err = srv.Stop(ctx, p.Name, api.StopOptions{})
+		err := srv.Stop(ctx, w.DockerCompose.project.Name, api.StopOptions{})
 		if err != nil {
 			return fmt.Errorf("unable running docker compose down: %w", err)
 		}
@@ -170,25 +193,38 @@ func (w Workspace) Teardown(srv api.Service) error {
 	return nil
 }
 
-type WorkspaceBuilder struct {
-	Name      string
-	Directory string
-}
-
-func NewWorkspace(c ConfigWorkspace) (Workspace, error) {
+func NewWorkspace(ctx context.Context, c ConfigWorkspace) (Workspace, error) {
 	// TODO Validate
 	if c.Name == "" {
 		return Workspace{}, errors.New("name is required")
 	}
 
-	return Workspace{
+	w := Workspace{
 		Name:             c.Name,
 		Directory:        c.Directory,
 		SetupCommands:    c.SetupCommands,
 		TeardownCommands: c.TeardownCommands,
 		Timeout:          c.Timeout,
-		DockerCompose:    c.DockerCompose,
-	}, nil
+		DockerCompose: struct {
+			Configs []string
+			project *types.Project
+		}{Configs: c.DockerCompose.Configs},
+	}
+
+	if w.Timeout == 0 {
+		w.Timeout = 5
+	}
+
+	if len(w.DockerCompose.Configs) != 0 {
+		p, err := createDockerComposeProject(ctx, w.Directory, w.DockerCompose.Configs)
+		if err != nil {
+			return Workspace{}, fmt.Errorf("error init docker project: %w", err)
+		}
+
+		w.DockerCompose.project = p
+	}
+
+	return w, nil
 }
 
 // runCommand runs multiple commands concurrently
@@ -203,7 +239,12 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 
 		col := color.ColorByIndex(i)
 
+		// TODO find a way to make it on blocking
+		// TODO ensure ni memory leak
+
 		go func(i int, cm string) {
+			defer wg.Done()
+
 			log.Printf("%d: Running command : %s", i, cm)
 			cmd := exec.Command(os.Getenv("SHELL"), "-c", cm)
 
@@ -241,18 +282,16 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 
 			err = cmd.Wait()
 			if err != nil {
-				log.Fatal(fmt.Errorf("unable to wait command (%s): %w", cmd, err))
+				log.Printf("error while running command (%s): %v", cmd, err)
 			}
 
 			log.Printf(color.Colorize(col, fmt.Sprintf("%d: Command finished", i)))
-
-			wg.Done()
 		}(i, cmd)
 	}
 
 	go func() {
 		wg.Wait()
-		defer close(c)
+		close(c)
 	}()
 
 	select {
@@ -261,4 +300,5 @@ func (w Workspace) runCommand(ctx context.Context, cmd ...string) {
 	case <-ctx.Done():
 		log.Println("Timeout reached" + ctx.Err().Error())
 	}
+	<-ctx.Done()
 }

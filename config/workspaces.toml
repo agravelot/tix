@@ -2,12 +2,75 @@
 name = "flasher-api-go"
 directory = "/Users/agravelot/lab/flasher-lerna/apps/api-go"
 setupCommands = [
-  "echo \"Setting up flasher\"",
-  "docker compose up -d",
-  "kitten @ launch --copy-env --cwd=current --title Test nvim .",
+  "kitten @ launch --type=tab --copy-env --cwd=current --title flasher-api-go nvim .",
 ]
-teardownCommands = []
+teardownCommands = ["kitten @ close-tab --match title:flasher-api-go"]
 dockerCompose = { configs = ["docker-compose.yml"] }
+
+[[workspace]]
+name = "payment"
+directory = "/Users/agravelot/lab/payment"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title payment nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:payment"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+[[workspace]]
+name = "graphql"
+directory = "/Users/agravelot/lab/graphql"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title graphql nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:graphql"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+[[workspace]]
+name = "gutenberg_v2"
+directory = "/Users/agravelot/lab/gutenberg_v2"
+setupCommands = [
+  "kitten @ launch ---type=tab -copy-env --cwd=current --title gutenberg_v2 nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:gutenberg_v2"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+
+[[workspace]]
+name = "gamification"
+directory = "/Users/agravelot/lab/gamification"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title gamification nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:gamification"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+[[workspace]]
+name = "bookmark-laravel"
+directory = "/Users/agravelot/lab/bookmark-laravel"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title bookmark-laravel nvim . &",
+]
+teardownCommands = ["kitten @ close-tab --match title:bookmark-laravel"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+[[workspace]]
+name = "bookmark-node"
+directory = "/Users/agravelot/lab/bookmark-node"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title bookmark-node nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:bookmark-node"]
+dockerCompose = { configs = ["docker-compose.yml"] }
+
+
+[[workspace]]
+name = "tix"
+directory = "/Users/agravelot/lab/tix"
+setupCommands = [
+  "kitten @ launch --type=tab --copy-env --cwd=current --title tix nvim .",
+]
+teardownCommands = ["kitten @ close-tab --match title:tix"]
+# dockerCompose = { configs = ["docker-compose.yml"] }
 
 [[workspace]]
 name = "toto"

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -22,6 +23,7 @@ var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	currentItemStyle  = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("100"))
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
@@ -50,9 +52,27 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		appletsStatus = RUNNING
 	}
 
+	// TODO Refactor without multiple for
+	appletsStatus += "kitty: "
+	for _, a := range i.Ws.Applets {
+		// TODO cleaner
+		if a.Icon != "kitty" {
+			continue
+		}
+		if a.IsRunning {
+			appletsStatus += RUNNING
+			continue
+		}
+		appletsStatus += STOPPED
+	}
+
 	appletsStatus += " \ue7b0 \uf308"
 
 	for _, a := range i.Ws.Applets {
+		// TODO cleaner
+		if a.Icon != "docker" {
+			continue
+		}
 		if a.IsRunning {
 			appletsStatus += RUNNING
 			continue
@@ -63,7 +83,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	str := fmt.Sprintf("%d. %s %s", index+1, i.Ws.Name, appletsStatus)
 
 	fn := itemStyle.Render
+
 	if index == m.Index() {
+		fn = func(s ...string) string {
+			return currentItemStyle.Render("> " + strings.Join(s, " "))
+		}
+		// FIXME from selected
+	} else if i.Ws.IsRunning() {
 		fn = func(s ...string) string {
 			return selectedItemStyle.Render("> " + strings.Join(s, " "))
 		}
@@ -100,21 +126,24 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Println("settingUpWorkspaces : ", m.selected)
 			m.settingUpWorkspaces = true
 
+			// TODO Add timeout
+			ctx := context.Background()
+
 			for i, w := range m.application.Workspaces {
 				_, isSelected := m.selected[i]
 				// TODO Refactor without nested if
 				if w.IsRunning() != isSelected {
 					if isSelected {
-						log.Printf("Setting up workspace %s", w.Name)
-						log.Printf("Running commands %v", w.SetupCommands)
-						err := w.Setup(m.application.Docker)
+						// log.Printf("Setting up workspace %s", w.Name)
+						// log.Printf("Running commands %v", w.SetupCommands)
+						err := w.Setup(ctx, m.application.Docker)
 						if err != nil {
 							log.Fatalln("error setting up workspace : ", err)
 						}
 					} else {
-						log.Printf("Tearing down workspace %s", w.Name)
-						log.Printf("Running commands %v", w.TeardownCommands)
-						err := w.Teardown(m.application.Docker)
+						// log.Printf("Tearing down workspace %s", w.Name)
+						// log.Printf("Running commands %v", w.TeardownCommands)
+						err := w.Teardown(ctx, m.application.Docker)
 						if err != nil {
 							log.Fatalln("error tearing down workspace : ", err)
 						}
@@ -135,15 +164,15 @@ func (m uiApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *uiApp) toggle() {
-	s := m.list.SelectedItem()
-	log.Println("Selected item : ", s)
+	// s := m.list.SelectedItem()
+	// log.Println("Selected item : ", s)
 	_, ok := m.selected[m.list.Index()]
 	if ok {
 		delete(m.selected, m.list.Index())
 		return
 	}
 	m.selected[m.list.Index()] = struct{}{}
-	log.Println("Selected : ", m.list.Index())
+	// log.Println("Selected : ", m.list.Index())
 }
 
 func (m uiApp) View() string {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/docker/compose/v2/pkg/api"
 )
@@ -24,10 +25,13 @@ func NewApplication(cfg Config) (Application, error) {
 		return Application{}, fmt.Errorf("error create docker service: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	workspaces := make([]Workspace, 0, len(cfg.Workspaces))
 
 	for _, cf := range cfg.Workspaces {
-		w, err := NewWorkspace(cf)
+		w, err := NewWorkspace(ctx, cf)
 		if err != nil {
 			return Application{}, fmt.Errorf("invalid workspace: %w", err)
 		}
